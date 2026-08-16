@@ -1,6 +1,6 @@
 package com.tarun.knowledegehub.document.controller;
 
-import com.tarun.knowledegehub.document.entity.fileMetadata;
+import com.tarun.knowledegehub.document.entity.FileMetadata;
 import com.tarun.knowledegehub.document.services.DocumentService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -24,8 +24,8 @@ public class documentController {
     }
 
     @PostMapping("/api/document/upload")
-    public ResponseEntity<fileMetadata> uploadDocument(@RequestParam("file") MultipartFile file) {
-        fileMetadata savedMetadata = documentService.storeFile(file);
+    public ResponseEntity<FileMetadata> uploadDocument(@RequestParam("file") MultipartFile file) {
+        FileMetadata savedMetadata = documentService.storeFile(file);
         return ResponseEntity.ok(savedMetadata);
     }
 }

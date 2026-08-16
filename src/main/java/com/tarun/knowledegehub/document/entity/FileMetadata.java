@@ -10,7 +10,7 @@ import lombok.*;
 @AllArgsConstructor
 @Builder
 @Table(name = "file_metadata")
-public class fileMetadata {
+public class FileMetadata {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;

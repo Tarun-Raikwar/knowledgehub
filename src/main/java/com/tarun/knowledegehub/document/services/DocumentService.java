@@ -1,6 +1,6 @@
 package com.tarun.knowledegehub.document.services;
 
-import com.tarun.knowledegehub.document.entity.fileMetadata;
+import com.tarun.knowledegehub.document.entity.FileMetadata;
 import com.tarun.knowledegehub.document.repository.FileMetadataRepository;
 import jakarta.annotation.PostConstruct;
 import org.springframework.beans.factory.annotation.Value;
@@ -10,6 +10,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.nio.file.*;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -17,10 +18,19 @@ public class DocumentService {
 
     private final FileMetadataRepository fileMetadataRepository;
     private final Path uploadStorageLocation;
+    private final PdfTextExtractionService pdfTextExtractionService;
+    private final ChunkingService chunkingService;
+    private final VectorStoreService vectorStoreService;
 
     public DocumentService(FileMetadataRepository fileMetadataRepository,
+                           PdfTextExtractionService pdfTextExtractionService,
+                           ChunkingService chunkingService,
+                           VectorStoreService vectorStoreService,
                            @Value("${file.upload-dir:uploads}") String uploadDir) {
         this.fileMetadataRepository = fileMetadataRepository;
+        this.pdfTextExtractionService =  pdfTextExtractionService;
+        this.chunkingService = chunkingService;
+        this.vectorStoreService =  vectorStoreService;
         this.uploadStorageLocation = Paths.get(uploadDir).toAbsolutePath().normalize();
     }
 
@@ -33,7 +43,7 @@ public class DocumentService {
         }
     }
 
-    public fileMetadata storeFile(MultipartFile file) {
+    public FileMetadata storeFile(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("Cannot store empty file.");
         }
@@ -52,15 +62,26 @@ public class DocumentService {
             Path targetLocation = this.uploadStorageLocation.resolve(uniqueFileName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
 
-            fileMetadata metadata = fileMetadata.builder()
+            FileMetadata metadata = FileMetadata.builder()
                     .fileName(originalFilename)
                     .fileType(file.getContentType())
                     .fileSize(file.getSize())
                     .filePath(targetLocation.toAbsolutePath().toString())
                     .build();
 
-            return fileMetadataRepository.save(metadata);
+            metadata = fileMetadataRepository.save(metadata);
 
+            String text = pdfTextExtractionService.extractText(file);
+            List<String> chunks = chunkingService.createChunks(text);
+
+            for (String chunk : chunks) {
+                vectorStoreService.storeChunk(
+                        metadata,
+                        chunk
+                );
+            }
+
+            return metadata;
         } catch (IOException ex) {
             throw new RuntimeException("Failed to store file " + originalFilename, ex);
         }
